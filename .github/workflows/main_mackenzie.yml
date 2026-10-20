@@ -117,11 +117,11 @@ jobs:
         # Puxa os dados confidenciais (Secrets) configurados no repositório do GitHub.
         with:
           # ID do cliente (aplicativo) na Azure.
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2625D0D765264B67BA91D0B4647EA8EC }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_455A41D757184B99A5E2F7C3C0AA220E }}
           # ID do diretório/locatário (tenant) da Azure.
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_355ECC283CC243B3B0F8BB24D1E138D7 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2A79FB2CFF28461F9B0E5BD56658EF6F }}
           # ID da assinatura que será cobrada pelos recursos na Azure.
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_638D89F46DA9483BB845CE8FB6E9CCA0 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_15DC753320C14043BCD9828A9DD11C4 }}
 
       # Step final: Envia efetivamente o código descompactado para o serviço do Azure Web App para colocar o site no ar.
       - name: 'Deploy to Azure Web App'
