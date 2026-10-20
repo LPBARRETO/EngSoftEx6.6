@@ -1,0 +1,136 @@
+# Documentação oficial e informações adicionais fornecidas pelo GitHub e Azure.
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
+
+# Define o nome geral deste fluxo de trabalho (Workflow) que aparecerá na interface do GitHub Actions.
+name: Build and deploy Python app to Azure Web App - Mackenzie
+
+# O bloco 'on' define quais eventos vão disparar a execução deste arquivo.
+on:
+  # Dispara o workflow automaticamente toda vez que houver um 'push' (envio de código)...
+  push:
+    # ...especificamente na branch principal chamada 'main'.
+    branches:
+      - main
+  # Permite rodar este workflow manualmente através de um botão na interface do GitHub.
+  workflow_dispatch:
+
+# Define os trabalhos (jobs) que serão executados neste workflow.
+jobs:
+  # Inicia o job chamado 'build' (construção da aplicação).
+  build:
+    # Define a máquina virtual (runner) que o GitHub usará para rodar o job. Aqui é o Ubuntu mais recente.
+    runs-on: ubuntu-latest
+    # Configura as permissões necessárias para o token automático do GitHub.
+    permissions:
+      # Dá permissão apenas de leitura no repositório para baixar o código fonte.
+      contents: read #This is required for actions/checkout
+
+    # Define a sequência de passos (steps) do job 'build'.
+    steps:
+      # Baixa o código do seu repositório para a máquina virtual do GitHub Actions.
+      - uses: actions/checkout@v4
+
+      # --- NOVO STEP ADICIONADO PARA O EXERCÍCIO 3 ---
+      # Imprime uma mensagem simples no terminal antes do processo principal.
+      - name: Mensagem de inicio de Deploy
+        run: echo "Iniciando o deploy do meu projeto!"
+      # -----------------------------------------------
+
+      # Configura o ambiente com a linguagem de programação especificada.
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        # Define os parâmetros para a action de configuração do Python.
+        with:
+          # Informa que a versão do Python a ser instalada na máquina virtual é a 3.13.
+          python-version: '3.13'
+
+      # Cria um ambiente virtual Python (venv) e o ativa para isolar as dependências.
+      - name: Create and start virtual environment
+        # Executa múltiplos comandos de terminal em sequência.
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+      
+      # Instala as bibliotecas que o seu projeto Python precisa para funcionar.
+      - name: Install dependencies
+        # Usa o pip para ler o arquivo requirements.txt e baixar os pacotes listados nele.
+        run: pip install -r requirements.txt
+        
+      # Comentário original: Espaço opcional para rodar testes automatizados (PyTest, etc).
+      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+
+      # Compacta todos os arquivos do projeto em um arquivo ZIP chamado 'release.zip'.
+      - name: Zip artifact for deployment
+        # Comando para zipar recursivamente (-r) tudo (./*) para dentro de release.zip.
+        run: zip release.zip ./* -r
+
+      # Salva o arquivo ZIP gerado como um "Artefato", para que ele não se perca quando a máquina virtual do build for desligada.
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v4
+        # Parâmetros para o upload.
+        with:
+          # Dá o nome de 'python-app' para este pacote de artefatos.
+          name: python-app
+          # Define quais arquivos/pastas serão guardados no artefato.
+          path: |
+            release.zip
+            # O ponto de exclamação indica que a pasta do ambiente virtual (venv) não deve ser salva/enviada.
+            !venv/
+
+  # Inicia o segundo job chamado 'deploy' (publicação da aplicação no servidor da Azure).
+  deploy:
+    # Novamente, define que este job rodará em uma máquina Ubuntu.
+    runs-on: ubuntu-latest
+    # Cria uma dependência de execução. O job 'deploy' SÓ roda se o job 'build' terminar com sucesso.
+    needs: build
+    # Associa esta execução a um ambiente configurado no GitHub (útil para regras de proteção).
+    environment:
+      # Nome do ambiente.
+      name: 'Production'
+      # Define a URL final da aplicação com base na resposta gerada pelo step de deploy abaixo.
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    # Configura permissões extras exigidas para autenticação segura com a Azure.
+    permissions:
+      # Necessário para autenticação OpenID Connect (OIDC) via token.
+      id-token: write #This is required for requesting the JWT
+      # Necessário novamente para ter permissão de leitura.
+      contents: read #This is required for actions/checkout
+
+    # Define a sequência de passos (steps) do job 'deploy'.
+    steps:
+      # Baixa o pacote (Artefato) que foi salvo no job anterior.
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        # Busca o pacote com o mesmo nome exato que demos lá em cima.
+        with:
+          name: python-app
+
+      # Descompacta o arquivo release.zip baixado para que o código fique solto na máquina de deploy.
+      - name: Unzip artifact for deployment
+        run: unzip release.zip
+
+      # Faz o login na plataforma da Microsoft Azure usando as credenciais seguras do repositório.
+      - name: Login to Azure
+        uses: azure/login@v2
+        # Puxa os dados confidenciais (Secrets) configurados no repositório do GitHub.
+        with:
+          # ID do cliente (aplicativo) na Azure.
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2625D0D765264B67BA91D0B4647EA8EC }}
+          # ID do diretório/locatário (tenant) da Azure.
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_355ECC283CC243B3B0F8BB24D1E138D7 }}
+          # ID da assinatura que será cobrada pelos recursos na Azure.
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_638D89F46DA9483BB845CE8FB6E9CCA0 }}
+
+      # Step final: Envia efetivamente o código descompactado para o serviço do Azure Web App para colocar o site no ar.
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        # Cria um 'id' para que este step seja referenciado posteriormente (como no caso da URL de ambiente lá em cima).
+        id: deploy-to-webapp
+        # Passa os parâmetros do serviço exato na Azure.
+        with:
+          # Nome do App Service (aplicação) criado na Azure.
+          app-name: 'Mackenzie'
+          # Define que o código vai ser jogado no "Slot" principal de Produção.
+          slot-name: 'Production'
